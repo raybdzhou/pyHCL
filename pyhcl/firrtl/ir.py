@@ -23,6 +23,15 @@ PrimOp = {
     "cat": [2, 0], "bits": [1, 2], "head": [1, 1], "tail": [1, 1]
 }
 
+# Primitive operations in verilog
+v_PrimOp = {
+    "add": "+", "sub": "-", "mul": "*", "div": "/", "rem": "%", "lt": "<", "leq": "<=",
+    "gt": ">", "geq": ">=", "eq": "==", "neq": "!=", "pad": "", "asUInt": "", "asSInt": "",
+    "asClock": "", "shl": "<<", "shr": ">>", "dshl": "","dshr": "", "cvt": "", "neg": "-",
+    "not": "~", "and": "&", "or": "|", "xor": "^", "andr": "", "orr": "", "xorr": "","cat": "",
+    "bits": "", "head": "", "tail": ""
+}
+
 # emit level
 emit_level = 0
 
@@ -79,6 +88,16 @@ class BaseArg(metaclass=abc.ABCMeta):
         """
         pass
 
+    @abc.abstractmethod
+    def emit_verilog(self) -> str:
+        """The emit_verilog method should be implemented in all BaseArg objects
+        
+        Returns:
+            A Verilog source code string
+        
+        """
+        pass
+
     @classmethod
     def __subclasshook__(cls, subclass):
         """Overwrite __subclasshook__()
@@ -113,6 +132,9 @@ class Definition(BaseArg):
     def emit(self) -> str:
         pass
 
+    def emit_verilog(self) -> str:
+        pass
+
 
 class Gender(Enum):
     """Gender class for expression"""
@@ -140,6 +162,9 @@ class Type(object):
     def emit(self) -> str:
         pass
 
+    def emit_verilog(self) -> str:
+        pass
+
 
 @dataclass
 class Exp(object):
@@ -155,6 +180,9 @@ class Exp(object):
     passive_type: bool = True
 
     def emit(self) -> str:
+        pass
+
+    def emit_verilog(self) -> str:
         pass
 
     @classmethod
@@ -276,6 +304,18 @@ class Circuit(Definition):
         emit_level = emit_level - 1
 
         return "".join(cat_table)
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current circuit
+
+        Returns:
+            The Verilog code string
+        """
+        global emit_level
+        cat_table: List[str] = []
+        for m in self.modules:
+            cat_table.append(m.emit_verilog() + '\n')
+        return "".join(cat_table)
 
 
 @dataclass
@@ -361,6 +401,32 @@ class Module(Definition):
         emit_level = emit_level - 1
 
         return "".join(cat_table)
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current module
+
+        Returns:
+            The Verilog code string
+        """
+        global emit_level
+        port_declares: List[str] = []
+        stat_declares: List[str] = []
+        cat_table: List[str] = []
+
+        emit_level = emit_level + 1
+        for p in self.ports:
+            port_declares.append("\n" + "\t"*emit_level + p.emit_verilog())
+        emit_level = emit_level - 1
+
+        emit_level = emit_level + 1
+        for s in self.stats:
+            stat_declares.append("\n" + "\t"*emit_level + s.emit_verilog())
+        emit_level = emit_level - 1
+
+        if self.sourceinfo is None:
+            cat_table.append(f"module {self.name}({''.join(port_declares)}\n);\n{''.join(stat_declares)}\nendmodule")
+        else:
+            cat_table.append(f"module {self.name}(\t{self.sourceinfo.emit()}{''.join(port_declares)}\n);\n{''.join(stat_declares)}\nendmodule")
 
 
 @dataclass
@@ -391,6 +457,21 @@ class Port(Definition):
             return "{} {} : {}\n".format(dir_str, self.name, self.type.emit())
         else:
             return "{} {} : {} {}\n".format(dir_str, self.name, self.type.emit(), self.sourceinfo.emit())
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the FIRRTL code of current port
+
+        Returns:
+            The FIRRTL code string
+        """
+        if self.direction == Dir.Input:
+            dir_str = "input"
+        else:
+            dir_str = "output"
+        if self.sourceinfo is None:
+            return f"{dir_str}\t{self.type.emit_verilog()}\t{self.name};"
+        else:
+            return f"{dir_str}\t{self.type.emit_verilog()}\t{self.name};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -418,6 +499,14 @@ class Field(Definition):
             return "flip {} : {}".format(self.name, self.type.emit())
         else:
             return "{} : {}".format(self.name, self.type.emit())
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current field
+
+        Returns:
+            The Verilog code string
+        """
+        pass
 
 
 @dataclass
@@ -428,6 +517,9 @@ class DefStat(Definition):
     sourceinfo: SourceInfo = None
 
     def emit(self) -> str:
+        pass
+
+    def emit_verilog(self) -> str:
         pass
 
 
@@ -453,6 +545,17 @@ class DefWire(DefStat):
             return "wire {} : {}\n".format(self.name, self.type.emit())
         else:
             return "wire {} : {} {}\n".format(self.name, self.type.emit(), self.sourceinfo.emit())
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current wire definition
+
+        Returns:
+            The Verilog code string
+        """
+        if self.sourceinfo is None:
+            return f"wire\t{self.type.emit_verilog()}\t{self.name};"
+        else:
+            return f"wire\t{self.type.emit_verilog()}\t{self.name};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -480,6 +583,17 @@ class DefReg(DefStat):
             return "reg {} : {}, {}\n".format(self.name, self.type.emit(), self.clk.emit())
         else:
             return "reg {} : {}, {} {}\n".format(self.name, self.type.emit(), self.clk.emit(), self.sourceinfo.emit())
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current register definition
+
+        Returns:
+            The Verilog code string
+        """
+        if self.sourceinfo is None:
+            return f"reg\t{self.type.emit_verilog()}\t{self.name};"
+        else:
+            return f"reg\t{self.type.emit_verilog()}\t{self.name};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -516,6 +630,18 @@ class DefRegReset(DefStat):
             return "reg %s : %s, %s with: (reset => (%s, %s)) %s\n" % (self.name, self.type.emit(), self.clk.emit(),
                                                                          self.reset_signal.emit(), self.reset_value.emit(),
                                                                          self.sourceinfo.emit())
+    
+
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current register definition
+
+        Returns:
+            The Verilog code string
+        """
+        if self.sourceinfo is None:
+            return f"reg\t{self.type.emit_verilog()}\t{self.name};"
+        else:
+            return f"reg\t{self.type.emit_verilog()}\t{self.name};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -551,6 +677,17 @@ class DefMem(DefStat):
             cat_table.append("{} : {} {}\n".format(self.name, self.type.emit(), self.sourceinfo.emit()))
 
         return "".join(cat_table)
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current memory definition
+
+        Returns:
+            The Verilog code string
+        """
+        if self.sourceinfo is None:
+            return f"reg\t{self.type.emit_verilog()}\t{self.name}\t[0:{self.size-1}];"
+        else:
+            return f"reg\t{self.type.emit_verilog()}\t{self.name}\t[0:{self.size-1}];\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -575,6 +712,18 @@ class DefNode(DefStat):
             return "node {} = {}\n".format(self.name, self.node_exp.emit())
         else:
             return "node {} = {} {}\n".format(self.name, self.node_exp.emit(), self.sourceinfo.emit())
+    
+
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current node definition
+
+        Returns:
+            The Verilog code string
+        """
+        if self.sourceinfo is None:
+            return f"wire\t{self.node_exp.type.emit_verilog()}\t{self.name} = {self.node_exp.emit_verilog()};"
+        else:
+            return f"wire\t{self.node_exp.type.emit_verilog()}\t{self.name} = {self.node_exp.emit_verilog()};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -599,6 +748,22 @@ class InstModule(DefStat):
             return "inst {} of {}\n".format(self.name, self.module.name)
         else:
             return "inst {} of {} {}\n".format(self.name, self.module.name, self.sourceinfo.emit())
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of instance definition
+
+        Returns:
+            The Verilog code string
+        """
+        inst_ports: List[str] = []
+        global emit_level
+        emit_level = emit_level + 1
+        for p in self.module.ports:
+            inst_ports.append("\n" + "\t" * emit_level + f".{p.name}({self.name}_{p.name}),")
+        if self.sourceinfo is None:
+            return f"{self.module.name}\t{self.name}({''.join(inst_ports)});"
+        else:
+            return f"{self.module.name}\t{self.name}(\t{self.sourceinfo.emit()}{''.join(inst_ports)});"
 
 
 @dataclass
@@ -644,6 +809,24 @@ class RefMemPort(DefStat):
             cat_table.append(" %s\n" % self.sourceinfo.emit())
 
         return "".join(cat_table)
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current memory port statement
+
+        Returns:
+            The Verilog code string
+        """
+        memportdeclares = ""
+        memportdeclares += f"wire {self.refmem.type.emit_verilog()} {self.refmem.name}_{self.name}_data;\n"
+        memportdeclares += f"wire [{get_width(self.refmem.size)-1}:0] {self.refmem.name}_{self.name}_addr;\n"
+        memportdeclares += f"wire {self.refmem.name}_{self.name}_en;\n"
+        memportdeclares += f"assign {self.refmem.name}_{self.name}_addr = {self.addr.emit_verilog()};\n"
+        memportdeclares += f"assign {self.refmem.name}_{self.name}_en = 1\'h1;\n"
+        if self.read_or_write is False:
+            memportdeclares += f'wire {self.refmem.name}_{self.name}_mask;\n'
+        return memportdeclares
+
+
 
 
 @dataclass
@@ -652,6 +835,9 @@ class CmdStat(BaseArg):
     sourceinfo: SourceInfo = None
 
     def emit(self) -> str:
+        pass
+
+    def emit_verilog(self) -> str:
         pass
 
 
@@ -708,6 +894,17 @@ class Connect(CmdStat):
             return "{} <= {}\n".format(self.lexp.emit(), self.rexp.emit())
         else:
             return "{} <= {} {}\n".format(self.lexp.emit(), self.rexp.emit(), self.sourceinfo.emit())
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current statement
+
+        Returns:
+            The Verilog code string
+        """
+        if self.sourceinfo is None:
+            return f"assign {self.lexp.emit_verilog()} = {self.rexp.emit_verilog()};"
+        else:
+            return f"assign {self.lexp.emit_verilog()} = {self.rexp.emit_verilog()};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -730,6 +927,9 @@ class IsInvalid(CmdStat):
             return "%s is invalid\n" % self.invad_exp.emit()
         else:
             return "%s is invalid %s\n" % (self.invad_exp.emit(), self.sourceinfo.emit())
+    
+    def emit_verilog(self) -> str:
+        pass
 
 
 @dataclass
@@ -756,6 +956,9 @@ class Stop(CmdStat):
             return "stop({}, {}, {})\n".format(self.clk.emit(), self.con.emit(), self.exit_code)
         else:
             return "stop({}, {}, {}) {}\n".format(self.clk.emit(), self.con.emit(), self.exit_code, self.sourceinfo.emit())
+    
+    def emit_verilog(self) -> str:
+        pass
 
 
 @dataclass
@@ -776,6 +979,9 @@ class Skip(CmdStat):
             return "skip\n"
         else:
             return "skip %s\n" % self.sourceinfo.emit()
+    
+    def emit_verilog(self) -> str:
+        pass
 
 
 @dataclass
@@ -813,6 +1019,9 @@ class Printf(CmdStat):
             cat_table.append(" %s\n" % self.sourceinfo.emit())
 
         return "".join(cat_table)
+    
+    def emit_verilog(self) -> str:
+        pass
 
 
 @dataclass
@@ -835,6 +1044,18 @@ class WhenBegin(CmdStat):
             return "when %s :\n" % self.con.emit()
         else:
             return "when %s : %s\n" % (self.con.emit(), self.sourceinfo.emit())
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current when begin statement
+
+        Returns:
+            The Verilog code string
+        """
+        if self.sourceinfo is None:
+            return f"if ({self.con.emit_verilog()}) begin"
+        else:
+            return f"if ({self.con.emit_verilog()}) begin\t{self.sourceinfo.emit()}"
+        
 
 
 @dataclass
@@ -856,6 +1077,14 @@ class WhenEnd(CmdStat):
             return "  "*emit_level + "skip\n"
         else:
             return "  "*emit_level + "skip %s\n" % self.sourceinfo.emit()
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current when end statement
+
+        Returns:
+            The Verilog code string
+        """
+        return "end"
 
 
 @dataclass
@@ -890,7 +1119,25 @@ class ElseBegin(CmdStat):
             cat_table.append("  "*emit_level + s.emit())
 
         return "".join(cat_table)
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current else begin statement
 
+        Returns:
+            The Verilog code string
+        """
+        global emit_level
+        cat_table: List[str] = []
+        if self.sourceinfo is None:
+            cat_table.append("else begin\n")
+        else:
+            cat_table.append(f"else begin\t{self.sourceinfo.emit()}\n")
+        
+        emit_level = emit_level + 1
+        for s in self.stats:
+            cat_table.append("\t"*emit_level + s.emit_verilog())
+
+        return "".join(cat_table)
 
 @dataclass
 class ElseEnd(CmdStat):
@@ -911,6 +1158,14 @@ class ElseEnd(CmdStat):
             return "  "*emit_level + "skip\n"
         else:
             return "  "*emit_level + "skip %s\n" % self.sourceinfo.emit()
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current else end statement
+
+        Returns:
+            The Verilog code string
+        """
+        return "end"
 
 
 @dataclass
@@ -959,6 +1214,29 @@ class When(CmdStat):
             emit_level = emit_level - 1
 
         return "".join(cat_table)
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current when statement
+
+        Returns:
+            The Verilog code string
+        """
+        global emit_level
+        cat_table: List[str] = []
+        cat_table.append(self.whenbegin.emit_verilog())
+
+        emit_level = emit_level + 1
+        for s in self.stats:
+            cat_table.append("\t"*emit_level + s.emit_verilog())
+        cat_table.append(self.whenend.emit_verilog())
+        emit_level = emit_level - 1
+
+        if self.has_else:
+            cat_table.append(self.elsebegin.emit_verilog())
+            cat_table.append(self.elseend.emit_verilog())
+            emit_level = emit_level - 1
+
+        return "".join(cat_table)
 
 
 @dataclass
@@ -984,6 +1262,13 @@ class UInt(Type):
             return "UInt"
         else:
             return "UInt<{}>".format(self.width)
+    
+    def emit_verilog(self) -> str:
+        """Return Verilog source code string"""
+        if self.width == 0:
+            return ""
+        else:
+            return f"[{self.width-1}:0]"
 
 
 @dataclass
@@ -1009,6 +1294,13 @@ class SInt(Type):
             return "SInt"
         else:
             return "SInt<{}>".format(self.width)
+    
+    def emit_verilog(self) -> str:
+        """Return Verilog source code string"""
+        if self.width == 0:
+            return ""
+        else:
+            return f"[{self.width-1}:0]"
 
 
 @dataclass
@@ -1021,6 +1313,10 @@ class Clock(Type):
     def emit(self) -> str:
         """Return FIRRTL source code string"""
         return "Clock"
+    
+    def emit_verilog(self) -> str:
+        """Return Verilog source code string"""
+        return ""
 
 
 @dataclass
@@ -1033,6 +1329,10 @@ class AsyncReset(Type):
     def emit(self) -> str:
         """Return FIRRTL source code string"""
         return "AsyncReset"
+    
+    def emit_verilog(self) -> str:
+        """Return Verilog source code string"""
+        return ""
 
 
 @dataclass
@@ -1046,6 +1346,9 @@ class AggType(Type):
     size: int = 0
 
     def emit(self) -> str:
+        pass
+
+    def emit_verilog(self) -> str:
         pass
 
 
@@ -1066,6 +1369,9 @@ class Vector(AggType):
     def emit(self) -> str:
         """Return FIRRTL source code string"""
         return "{}[{}]".format(self.type.emit(), self.size)
+    
+    def emit_verilog(self) -> str:
+        pass
 
 
 @dataclass
@@ -1116,6 +1422,9 @@ class Bundle(AggType):
         cat_table.append(self.fields[len(self.fields)-1].emit() + "}")
 
         return "".join(cat_table)
+    
+    def emit_verilog(self) -> str:
+        pass
 
 
 @dataclass
@@ -1134,6 +1443,9 @@ class LitInt(Exp):
     passive_type: bool = True
 
     def emit(self) -> str:
+        pass
+
+    def emit_verilog(self) -> str:
         pass
 
 
@@ -1163,6 +1475,21 @@ class LitUInt(LitInt):
                 return "UInt<{}>({})".format(self.type.width, self.initial)
             else:
                 return "UInt<{}>(\"{}\")".format(self.type.width, self.initial)
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current unsigned literal integer
+
+        Returns:
+            The Verilog code string
+        """
+        if self.type.width == 0:
+            return self.initial
+        else:
+            if isinstance(self.initial, int):
+                return f"{self.type.width}\'d{self.initial}"
+            else:
+                return f"{self.type.width}\'{self.initial}"
+
 
 
 @dataclass
@@ -1191,6 +1518,20 @@ class LitSInt(LitInt):
                 return "SInt<{}>({})".format(self.type.width, self.initial)
             else:
                 return "SInt<{}>(\"{}\")".format(self.type.width, self.initial)
+    
+    def emit_verilog(self) -> str:
+        """Generate and return the Verilog code of current unsigned literal integer
+
+        Returns:
+            The Verilog code string
+        """
+        if self.type.width == 0:
+            return self.initial
+        else:
+            if isinstance(self.initial, int):
+                return f"-{self.type.width}\'d{-self.initial}" if self.initial < 0 else f"{self.type.width}\'d{self.initial}"
+            else:
+                return f"-{self.type.width}\'{self.initial[1:]}" if self.initial[0] == "-" else f"{self.type.width}\'{self.initial}"
 
 
 @dataclass
@@ -1212,6 +1553,10 @@ class ValidIf(Exp):
     def emit(self) -> str:
         """Return FIRRTL source code string"""
         return "validif({}, {})".format(self.con.emit(), self.vad.emit())
+    
+    def emit_verilog(self) -> str:
+        """Return FIRRTL source code string"""
+        return f"{self.con.emit_verilog()} ? {self.vad.emit_verilog()} : Z"
 
 
 @dataclass
@@ -1235,6 +1580,11 @@ class Mux(Exp):
     def emit(self) -> str:
         """Return FIRRTL source code string"""
         return "mux({}, {}, {})".format(self.con.emit(), self.true_exp.emit(), self.false_exp.emit())
+    
+
+    def emit_verilog(self) -> str:
+        """Return Verilog source code string"""
+        return f"{self.con.emit_verilog()} ? {self.true_exp.emit_verilog()} : {self.false_exp.emit_verilog()}"
 
 
 @dataclass
@@ -1300,6 +1650,17 @@ class Op(Exp):
             cat_table.append("{})".format(self.parameters[len(self.parameters)-1]))
 
         return "".join(cat_table)
+    
+    def emit_verilog(self) -> str:
+        """Return FIRRTL source code string"""
+
+        if len(self.parameters) == 0:
+            return f" {v_PrimOp[self.name]} ".join([operand.emit_verilog() for operand in self.operands])
+        else:
+            operands = [operand.emit_verilog() for operand in self.operands]
+            parameters = [parameter for parameter in self.parameters]
+            return f" {v_PrimOp[self.name]} ".join(operands + parameters)
+
 
 
 @dataclass
@@ -1315,6 +1676,9 @@ class Ref(Exp):
     ref_arg: Definition = None
 
     def emit(self) -> str:
+        pass
+
+    def emit_verilog(self) -> str:
         pass
 
 
@@ -1335,6 +1699,13 @@ class RefId(Ref):
             return "%s" % self.ref_arg.name
         else:
             return "%s" % self.ref_arg.emit()
+        
+    def emit_verilog(self) -> str:
+        """Return Verilog source code string"""
+        if isinstance(self.ref_arg, Definition):
+            return self.ref_arg.name
+        else:
+            return self.ref_arg.emit_verilog()
 
 
 @dataclass
@@ -1359,6 +1730,9 @@ class RefSubfield(Ref):
             return "{}".format(self.ref_arg.emit())
         else:
             return "{}.{}".format(self.ref_arg.emit(), self.ref_field.emit())
+    
+    def emit_verilog(self) -> str:
+        pass
 
 
 @dataclass
@@ -1378,6 +1752,9 @@ class RefSubindex(Ref):
     def emit(self) -> str:
         """Return FIRRTL source code string"""
         return "{}[{}]".format(self.ref_arg.name, self.index)
+    
+    def emit_verilog(self) -> str:
+        pass
 
 
 @dataclass
@@ -1397,3 +1774,6 @@ class RefSubaccess(Ref):
     def emit(self) -> str:
         """Return FIRRTL source code string"""
         return "{}[{}]".format(self.ref_arg.name, self.index_exp.emit())
+    
+    def emit_verilog(self) -> str:
+        pass

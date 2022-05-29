@@ -200,12 +200,24 @@ def elaborate(module) -> ir.Circuit:
 def emit(circuit: ir.Circuit, filename: str):
     """From syntax tree to emit FIRRTL code"""
     # From circuit, if the first element is not a circuit, raise a Error
-    print(circuit)
     s = circuit.emit()
 
     if not os.path.exists('.fir'):
         os.mkdir('.fir')
     f = os.path.join('.fir', filename)
+    with open(f, "w+") as fir_file:
+        fir_file.write(s)
+    
+    return f
+
+def emit_verilog(circuit: ir.Circuit, filename: str):
+    """From syntax tree to emit Verilog code"""
+    # From circuit, if the first element is not a circuit, raise a Error
+    s = circuit.emit_verilog()
+
+    if not os.path.exists('.v'):
+        os.mkdir('.v')
+    f = os.path.join('.v', filename)
     with open(f, "w+") as fir_file:
         fir_file.write(s)
     
