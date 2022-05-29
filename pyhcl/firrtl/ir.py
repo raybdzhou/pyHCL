@@ -469,9 +469,9 @@ class Port(Definition):
         else:
             dir_str = "output"
         if self.sourceinfo is None:
-            return f"{dir_str}\t{self.type.emit_verilog()}\t{self.name};"
+            return f"{dir_str}\t{self.type.emit_verilog()}{self.name};"
         else:
-            return f"{dir_str}\t{self.type.emit_verilog()}\t{self.name};\t{self.sourceinfo.emit()}"
+            return f"{dir_str}\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -553,9 +553,9 @@ class DefWire(DefStat):
             The Verilog code string
         """
         if self.sourceinfo is None:
-            return f"wire\t{self.type.emit_verilog()}\t{self.name};"
+            return f"wire\t{self.type.emit_verilog()}{self.name};"
         else:
-            return f"wire\t{self.type.emit_verilog()}\t{self.name};\t{self.sourceinfo.emit()}"
+            return f"wire\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -591,9 +591,9 @@ class DefReg(DefStat):
             The Verilog code string
         """
         if self.sourceinfo is None:
-            return f"reg\t{self.type.emit_verilog()}\t{self.name};"
+            return f"reg\t{self.type.emit_verilog()}{self.name};"
         else:
-            return f"reg\t{self.type.emit_verilog()}\t{self.name};\t{self.sourceinfo.emit()}"
+            return f"reg\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -639,9 +639,9 @@ class DefRegReset(DefStat):
             The Verilog code string
         """
         if self.sourceinfo is None:
-            return f"reg\t{self.type.emit_verilog()}\t{self.name};"
+            return f"reg\t{self.type.emit_verilog()}{self.name};"
         else:
-            return f"reg\t{self.type.emit_verilog()}\t{self.name};\t{self.sourceinfo.emit()}"
+            return f"reg\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -685,9 +685,9 @@ class DefMem(DefStat):
             The Verilog code string
         """
         if self.sourceinfo is None:
-            return f"reg\t{self.type.emit_verilog()}\t{self.name}\t[0:{self.size-1}];"
+            return f"reg\t{self.type.emit_verilog()}{self.name}\t[0:{self.size-1}];"
         else:
-            return f"reg\t{self.type.emit_verilog()}\t{self.name}\t[0:{self.size-1}];\t{self.sourceinfo.emit()}"
+            return f"reg\t{self.type.emit_verilog()}{self.name}\t[0:{self.size-1}];\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -721,9 +721,9 @@ class DefNode(DefStat):
             The Verilog code string
         """
         if self.sourceinfo is None:
-            return f"wire\t{self.node_exp.type.emit_verilog()}\t{self.name} = {self.node_exp.emit_verilog()};"
+            return f"wire\t{self.node_exp.type.emit_verilog()}{self.name} = {self.node_exp.emit_verilog()};"
         else:
-            return f"wire\t{self.node_exp.type.emit_verilog()}\t{self.name} = {self.node_exp.emit_verilog()};\t{self.sourceinfo.emit()}"
+            return f"wire\t{self.node_exp.type.emit_verilog()}{self.name} = {self.node_exp.emit_verilog()};\t{self.sourceinfo.emit()}"
 
 
 @dataclass
@@ -817,7 +817,7 @@ class RefMemPort(DefStat):
             The Verilog code string
         """
         memportdeclares = ""
-        memportdeclares += f"wire {self.refmem.type.emit_verilog()} {self.refmem.name}_{self.name}_data;\n"
+        memportdeclares += f"wire {self.refmem.type.emit_verilog()}{self.refmem.name}_{self.name}_data;\n"
         memportdeclares += f"wire [{get_width(self.refmem.size)-1}:0] {self.refmem.name}_{self.name}_addr;\n"
         memportdeclares += f"wire {self.refmem.name}_{self.name}_en;\n"
         memportdeclares += f"assign {self.refmem.name}_{self.name}_addr = {self.addr.emit_verilog()};\n"
@@ -1129,15 +1129,15 @@ class ElseBegin(CmdStat):
         global emit_level
         cat_table: List[str] = []
         if self.sourceinfo is None:
-            cat_table.append("else begin\n")
+            cat_table.append("else begin")
         else:
-            cat_table.append(f"else begin\t{self.sourceinfo.emit()}\n")
+            cat_table.append(f"else begin\t{self.sourceinfo.emit()}")
         
         emit_level = emit_level + 1
         for s in self.stats:
             cat_table.append("\t"*emit_level + s.emit_verilog())
 
-        return "".join(cat_table)
+        return "\n".join(cat_table)
 
 @dataclass
 class ElseEnd(CmdStat):
@@ -1236,7 +1236,7 @@ class When(CmdStat):
             cat_table.append(self.elseend.emit_verilog())
             emit_level = emit_level - 1
 
-        return "".join(cat_table)
+        return "\n".join(cat_table)
 
 
 @dataclass
@@ -1265,10 +1265,10 @@ class UInt(Type):
     
     def emit_verilog(self) -> str:
         """Return Verilog source code string"""
-        if self.width == 0:
+        if self.width <= 1:
             return ""
         else:
-            return f"[{self.width-1}:0]"
+            return f"[{self.width-1}:0]\t"
 
 
 @dataclass
@@ -1297,10 +1297,10 @@ class SInt(Type):
     
     def emit_verilog(self) -> str:
         """Return Verilog source code string"""
-        if self.width == 0:
+        if self.width <= 1:
             return ""
         else:
-            return f"[{self.width-1}:0]"
+            return f"[{self.width-1}:0]\t"
 
 
 @dataclass
