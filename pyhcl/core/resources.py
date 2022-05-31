@@ -34,6 +34,15 @@ class SourceInfo(object):
         """
         self.info = "@[{}:{}]".format(self.filename, self.line)
         return self.info
+    
+    def emit_verilog(self) -> str:
+        """Generate current Verilog source info
+
+        Returns:
+            A source information string
+        """
+        self.info = f"// {self.filename}:{self.line}"
+        return self.info
 
 
 class HasInfo(object):

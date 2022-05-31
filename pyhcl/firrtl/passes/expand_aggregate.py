@@ -1,4 +1,3 @@
-from numpy import isin
 from pyhcl.firrtl.ir import *
 from typing import List, Dict
 from dataclasses import dataclass

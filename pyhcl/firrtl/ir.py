@@ -426,7 +426,9 @@ class Module(Definition):
         if self.sourceinfo is None:
             cat_table.append(f"module {self.name}({''.join(port_declares)}\n);\n{''.join(stat_declares)}\nendmodule")
         else:
-            cat_table.append(f"module {self.name}(\t{self.sourceinfo.emit()}{''.join(port_declares)}\n);\n{''.join(stat_declares)}\nendmodule")
+            cat_table.append(f"module {self.name}(\t{self.sourceinfo.emit_verilog()}{''.join(port_declares)}\n);\n{''.join(stat_declares)}\nendmodule")
+
+        return "".join(cat_table)
 
 
 @dataclass
@@ -456,7 +458,7 @@ class Port(Definition):
         if self.sourceinfo is None:
             return "{} {} : {}\n".format(dir_str, self.name, self.type.emit())
         else:
-            return "{} {} : {} {}\n".format(dir_str, self.name, self.type.emit(), self.sourceinfo.emit())
+            return "{} {} : {} {}\n".format(dir_str, self.name, self.type.emit(), self.sourceinfo.emit_verilog())
     
     def emit_verilog(self) -> str:
         """Generate and return the FIRRTL code of current port
@@ -471,7 +473,7 @@ class Port(Definition):
         if self.sourceinfo is None:
             return f"{dir_str}\t{self.type.emit_verilog()}{self.name};"
         else:
-            return f"{dir_str}\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit()}"
+            return f"{dir_str}\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit_verilog()}"
 
 
 @dataclass
@@ -555,7 +557,7 @@ class DefWire(DefStat):
         if self.sourceinfo is None:
             return f"wire\t{self.type.emit_verilog()}{self.name};"
         else:
-            return f"wire\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit()}"
+            return f"wire\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit_verilog()}"
 
 
 @dataclass
@@ -593,7 +595,7 @@ class DefReg(DefStat):
         if self.sourceinfo is None:
             return f"reg\t{self.type.emit_verilog()}{self.name};"
         else:
-            return f"reg\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit()}"
+            return f"reg\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit_verilog()}"
 
 
 @dataclass
@@ -641,7 +643,7 @@ class DefRegReset(DefStat):
         if self.sourceinfo is None:
             return f"reg\t{self.type.emit_verilog()}{self.name};"
         else:
-            return f"reg\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit()}"
+            return f"reg\t{self.type.emit_verilog()}{self.name};\t{self.sourceinfo.emit_verilog()}"
 
 
 @dataclass
@@ -687,7 +689,7 @@ class DefMem(DefStat):
         if self.sourceinfo is None:
             return f"reg\t{self.type.emit_verilog()}{self.name}\t[0:{self.size-1}];"
         else:
-            return f"reg\t{self.type.emit_verilog()}{self.name}\t[0:{self.size-1}];\t{self.sourceinfo.emit()}"
+            return f"reg\t{self.type.emit_verilog()}{self.name}\t[0:{self.size-1}];\t{self.sourceinfo.emit_verilog()}"
 
 
 @dataclass
@@ -723,7 +725,7 @@ class DefNode(DefStat):
         if self.sourceinfo is None:
             return f"wire\t{self.node_exp.type.emit_verilog()}{self.name} = {self.node_exp.emit_verilog()};"
         else:
-            return f"wire\t{self.node_exp.type.emit_verilog()}{self.name} = {self.node_exp.emit_verilog()};\t{self.sourceinfo.emit()}"
+            return f"wire\t{self.node_exp.type.emit_verilog()}{self.name} = {self.node_exp.emit_verilog()};\t{self.sourceinfo.emit_verilog()}"
 
 
 @dataclass
@@ -763,7 +765,7 @@ class InstModule(DefStat):
         if self.sourceinfo is None:
             return f"{self.module.name}\t{self.name}({''.join(inst_ports)});"
         else:
-            return f"{self.module.name}\t{self.name}(\t{self.sourceinfo.emit()}{''.join(inst_ports)});"
+            return f"{self.module.name}\t{self.name}(\t{self.sourceinfo.emit_verilog()}{''.join(inst_ports)});"
 
 
 @dataclass
@@ -902,9 +904,9 @@ class Connect(CmdStat):
             The Verilog code string
         """
         if self.sourceinfo is None:
-            return f"assign {self.lexp.emit_verilog()} = {self.rexp.emit_verilog()};"
+            return f"assign\t{self.lexp.emit_verilog()} = {self.rexp.emit_verilog()};"
         else:
-            return f"assign {self.lexp.emit_verilog()} = {self.rexp.emit_verilog()};\t{self.sourceinfo.emit()}"
+            return f"assign\t{self.lexp.emit_verilog()} = {self.rexp.emit_verilog()};\t{self.sourceinfo.emit_verilog()}"
 
 
 @dataclass
@@ -1054,7 +1056,7 @@ class WhenBegin(CmdStat):
         if self.sourceinfo is None:
             return f"if ({self.con.emit_verilog()}) begin"
         else:
-            return f"if ({self.con.emit_verilog()}) begin\t{self.sourceinfo.emit()}"
+            return f"if ({self.con.emit_verilog()}) begin\t{self.sourceinfo.emit_verilog()}"
         
 
 
@@ -1131,7 +1133,7 @@ class ElseBegin(CmdStat):
         if self.sourceinfo is None:
             cat_table.append("else begin")
         else:
-            cat_table.append(f"else begin\t{self.sourceinfo.emit()}")
+            cat_table.append(f"else begin\t{self.sourceinfo.emit_verilog()}")
         
         emit_level = emit_level + 1
         for s in self.stats:
@@ -1732,6 +1734,13 @@ class RefSubfield(Ref):
             return "{}.{}".format(self.ref_arg.emit(), self.ref_field.emit())
     
     def emit_verilog(self) -> str:
+        """Return FIRRTL source code string"""
+        # if isinstance(self.ref_field, Field):
+        #     return f"{self.ref_arg.emit_verilog()}_{self.ref_field.name}"
+        # elif self.ref_field is None:
+        #     return f"{self.ref_arg.emit_verilog()}"
+        # else:
+        #     return f"{self.ref_arg.emit_verilog()}_{self.ref_field.emit_verilog()}"
         pass
 
 
@@ -1754,6 +1763,8 @@ class RefSubindex(Ref):
         return "{}[{}]".format(self.ref_arg.name, self.index)
     
     def emit_verilog(self) -> str:
+        """Return FIRRTL source code string"""
+        # return f"{self.ref_arg.name}_{self.index}"
         pass
 
 

@@ -15,6 +15,8 @@ from pyhcl.core.rawmodule import Module, modules_list
 from pyhcl.core.resources import HasInfo, InstanceId
 from pyhcl.firrtl import ir
 from pyhcl.core.rawdata import local_sytax_tree
+from pyhcl.firrtl.passes.expand_aggregate import ExpandAggregate
+from pyhcl.firrtl.passes.remove_access import RemoveAccess
 
 syntax_tree = []
 # If a self-define module override a var from base class
@@ -213,6 +215,8 @@ def emit(circuit: ir.Circuit, filename: str):
 def emit_verilog(circuit: ir.Circuit, filename: str):
     """From syntax tree to emit Verilog code"""
     # From circuit, if the first element is not a circuit, raise a Error
+    circuit = ExpandAggregate(circuit).run()
+    circuit = RemoveAccess(circuit).run()
     s = circuit.emit_verilog()
 
     if not os.path.exists('.v'):
