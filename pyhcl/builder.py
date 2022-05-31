@@ -17,6 +17,7 @@ from pyhcl.firrtl import ir
 from pyhcl.core.rawdata import local_sytax_tree
 from pyhcl.firrtl.passes.expand_aggregate import ExpandAggregate
 from pyhcl.firrtl.passes.remove_access import RemoveAccess
+from pyhcl.firrtl.passes.verilog_optimize import VerilogOptimize
 
 syntax_tree = []
 # If a self-define module override a var from base class
@@ -217,6 +218,7 @@ def emit_verilog(circuit: ir.Circuit, filename: str):
     # From circuit, if the first element is not a circuit, raise a Error
     circuit = ExpandAggregate(circuit).run()
     circuit = RemoveAccess(circuit).run()
+    circuit = VerilogOptimize(circuit).run()
     s = circuit.emit_verilog()
 
     if not os.path.exists('.v'):
