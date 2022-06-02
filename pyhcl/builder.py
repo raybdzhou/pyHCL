@@ -16,7 +16,9 @@ from pyhcl.core.resources import HasInfo, InstanceId
 from pyhcl.firrtl import ir
 from pyhcl.core.rawdata import local_sytax_tree
 from pyhcl.firrtl.passes.expand_aggregate import ExpandAggregate
+from pyhcl.firrtl.passes.namespace import Namespace
 from pyhcl.firrtl.passes.remove_access import RemoveAccess
+from pyhcl.firrtl.passes.replace_subaccess import ReplaceSubaccess
 from pyhcl.firrtl.passes.verilog_optimize import VerilogOptimize
 
 syntax_tree = []
@@ -216,9 +218,11 @@ def emit(circuit: ir.Circuit, filename: str):
 def emit_verilog(circuit: ir.Circuit, filename: str):
     """From syntax tree to emit Verilog code"""
     # From circuit, if the first element is not a circuit, raise a Error
-    circuit = ExpandAggregate(circuit).run()
-    circuit = RemoveAccess(circuit).run()
-    circuit = VerilogOptimize(circuit).run()
+    namespace = Namespace()
+    circuit = ExpandAggregate(circuit).run(namespace)
+    circuit = ReplaceSubaccess(circuit).run(namespace)
+    circuit = RemoveAccess(circuit).run(namespace)
+    circuit = VerilogOptimize(circuit).run(namespace)
     s = circuit.emit_verilog()
 
     if not os.path.exists('.v'):

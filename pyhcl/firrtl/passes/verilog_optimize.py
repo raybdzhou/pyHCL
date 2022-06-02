@@ -1,13 +1,13 @@
-from platform import node
 from pyhcl.firrtl.ir import *
 from typing import List, Dict
 from dataclasses import dataclass
+from pyhcl.firrtl.passes.namespace import Namespace
 
 @dataclass
 class VerilogOptimize:
     c: Circuit
 
-    def run(self):
+    def run(self, namespace: Namespace):
         modules: List[Module] = []
 
         def auto_gen_node(s):

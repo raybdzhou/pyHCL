@@ -1,14 +1,15 @@
 from pyhcl.firrtl.ir import *
-from typing import List, Dict
+from typing import List
 from dataclasses import dataclass
 from pyhcl.firrtl.passes.utils import flatten, flip
+from pyhcl.firrtl.passes.namespace import Namespace
 from pyhcl.exceptions import PyHCLException
 
 @dataclass
 class ExpandAggregate:
     c: Circuit
 
-    def run(self) -> Circuit:
+    def run(self, namespace: Namespace) -> Circuit:
         modules: List[Module] = []
 
         def gen_def(defin: Definition, type: Type = None, dir: Dir = None, name: str = None):

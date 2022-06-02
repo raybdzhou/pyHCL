@@ -1764,8 +1764,7 @@ class RefSubindex(Ref):
     
     def emit_verilog(self) -> str:
         """Return FIRRTL source code string"""
-        # return f"{self.ref_arg.name}_{self.index}"
-        pass
+        return f"{self.ref_arg.name}_{self.index}"
 
 
 @dataclass
