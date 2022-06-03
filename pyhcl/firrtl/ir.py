@@ -757,15 +757,18 @@ class InstModule(DefStat):
         Returns:
             The Verilog code string
         """
+        port_decs: List[str] = []
         inst_ports: List[str] = []
         global emit_level
         emit_level = emit_level + 1
         for p in self.module.ports:
+            port_decs.append(f"wire\t{p.type.emit_verilog()}\t{self.name}_{p.name}")
             inst_ports.append("\n" + "\t" * emit_level + f".{p.name}({self.name}_{p.name}),")
+        port_dec = '\n'.join(port_decs)
         if self.sourceinfo is None:
-            return f"{self.module.name}\t{self.name}({''.join(inst_ports)});"
+            return f"{port_dec}\n{self.module.name}\t{self.name}({''.join(inst_ports)});"
         else:
-            return f"{self.module.name}\t{self.name}(\t{self.sourceinfo.emit_verilog()}{''.join(inst_ports)});"
+            return f"{port_dec}\n{self.module.name}\t{self.name}(\t{self.sourceinfo.emit_verilog()}{''.join(inst_ports)});"
 
 
 @dataclass
@@ -1764,6 +1767,8 @@ class RefSubindex(Ref):
     
     def emit_verilog(self) -> str:
         """Return FIRRTL source code string"""
+        if isinstance(self.ref_arg, Ref):
+            return f"{self.ref_arg.emit_verilog()}_{self.index}"
         return f"{self.ref_arg.name}_{self.index}"
 
 

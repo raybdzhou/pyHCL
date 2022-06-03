@@ -11,6 +11,18 @@ class ReplaceSubaccess:
     def run(self, namespace: Namespace):
         modules: List[Module] = []
 
+        def get_ref_name(e: Definition) -> str:
+            if isinstance(e, RefSubaccess):
+                return get_ref_name(e.ref_arg)
+            elif isinstance(e, RefSubfield):
+                return get_ref_name(e.ref_arg)
+            elif isinstance(e, RefSubindex):
+                return get_ref_name(e.ref_arg)
+            elif isinstance(e, RefId):
+                return get_ref_name(e.ref_arg)
+            else:
+                return e.name
+
         def has_access(e: Exp) -> bool:
             if isinstance(e, RefSubaccess):
                 return True
@@ -19,47 +31,42 @@ class ReplaceSubaccess:
             else:
                 return False
 
-        def replace_subaccess(e: Exp, index_exp: Exp = None):
+        def replace_subaccess(e: Exp):
             cons: List[Exp] = []
             exps: List[Exp] = []
             if isinstance(e, RefSubaccess):
-                if isinstance(e.type, Vector):
-                    xcons, xexps = replace_subaccess(e.ref_arg, e.index_exp)
-                    for i in range(e.type.size):
-                        for xcon in xcons:
-                            cons.append(Op(Gender.male, UInt(1), True, "and", [Op(Gender.male, UInt(1), True, "eq",
-                            [index_exp, LitUInt(Gender.undefined, UInt(get_width(e.type.size)), True, i)], []), xcon], []))
-                    
-                    for i in range(len(xcons)):
-                        if len(xexps) > 0:
+                xcons, xexps = replace_subaccess(e.ref_arg)
+                if len(cons) == 0 and len(xexps) == 0:
+                    if isinstance(e.ref_arg.type, Vector):
+                        for i in range(e.ref_arg.type.size):
+                            cons.append(Op(Gender.male, UInt(1), True, "eq", [e.index_exp, LitUInt(Gender.undefined, UInt(get_width(e.ref_arg.type.size)), True, i)], []))
+                            exps.append(RefSubindex(e.gender, e.type, e.passive_type, e.ref_arg, i))
+                    else:
+                        exps.append(e)
+                else:
+                    if isinstance(e.ref_arg.type, Vector):
+                        for i in range(e.ref_arg.type.size):
+                            for xcon in xcons:
+                                cons.append(Op(Gender.male, UInt(1), True, "and", [xcon, Op(Gender.male, UInt(1), True, "eq",
+                                [e.index_exp, LitUInt(Gender.undefined, UInt(get_width(e.ref_arg.type.size)), True, i)], [])], []))
                             for xexp in xexps:
                                 exps.append(RefSubindex(e.gender, e.type, e.passive_type, xexp, i))
-                        else:
-                            exps.append(RefSubindex(e.gender, e.type, e.passive_type, e.ref_arg, i))
+                    else:
+                        cons, exps = xcons, xexps
             elif isinstance(e, RefSubfield):
-                xcons, xexps = replace_subaccess(e.ref_arg, index_exp)
-                cons.extend(xcons)
-                if len(xexps) > 0:
-                    for xexp in xexps:
-                        exps.append(RefSubfield(e.gender, e.type, e.passive_type, xexp, e.ref_field))
-                else:
-                    exps.append(e)
+                xcons, xexps = replace_subaccess(e.ref_arg)
+                cons = xcons
+                for xexp in xexps:
+                    exps.append(RefSubfield(e.gender, e.type, e.passive_type, xexp, e.ref_field))
             elif isinstance(e, RefSubindex):
-                xcons, xexps = replace_subaccess(e.ref_arg, index_exp)
-                cons.extend(xcons)
-                if len(xexps) > 0:
-                    for xexp in xexps:
-                        exps.append(RefSubindex(e.gender, e.type, e.passive_type, xexp, e.index))
-                else:
-                    exps.append(e)
-            else:
-                if isinstance(e.type, Vector):
-                    for i in range(e.type.size):
-                        cons.append(Op(Gender.male, UInt(1), True, "eq", [index_exp, LitUInt(Gender.undefined, UInt(get_width(e.type.size)), True, i)], []))
+                xcons, xexps = replace_subaccess(e.ref_arg)
+                cons = xcons
+                for xexp in xexps:
+                    exps.append(RefSubindex(e.gender, e.type, e.passive_type, xexp, e.index))
             
             return cons, exps
 
-        def replace_subaccess_e(e: Exp, stats: List[Exp], sourceinfo: SourceInfo) -> Exp:
+        def replace_subaccess_e(e: Exp, stats: List[Exp], sourceinfo: SourceInfo, is_sink: bool = False, source: Exp = None) -> Exp:
             if isinstance(e, ValidIf):
                 return ValidIf(e.gender, e.type, e.passive_type, replace_subaccess_e(e.con, stats, sourceinfo),
                 replace_subaccess_e(e.vad, stats, sourceinfo))
@@ -70,41 +77,40 @@ class ReplaceSubaccess:
                 return Op(e.gender, e.type, e.passive_type, e.name, [replace_subaccess_e(operand, stats, sourceinfo) for operand in e.operands],
                 e.parameters)
             elif isinstance(e, (RefSubaccess, RefSubfield, RefSubindex)) and has_access(e):
-                cons, exps = replace_subaccess(e.ref_arg, e.index_exp)
-                gen_nodes: Dict[str, DefNode] = {}
-                for i in range(len(cons)):
-                    if len(exps) > 0:
-                        for exp in exps:
-                            if i == 0:
-                                name = namespace.auto_get_name()
-                                gen_node = DefNode(sourceinfo, name, None, ValidIf(Gender.male, e.type, True, cons[i],
-                                RefSubindex(e.gender, e.type, e.passive_type, exp, i)))
-                                stats.append(gen_node)
-                                gen_nodes[name] = gen_node
-                            else:
-                                last_node = gen_nodes[namespace.last_name()]
-                                name = namespace.auto_get_name()
-                                gen_node = DefNode(sourceinfo, name, None,
-                                Mux(Gender.male, e.type, True, cons[i], RefSubindex(e.gender, e.type, e.passive_type, exp, i),
-                                RefId(Gender.undefined, last_node.node_exp.type, True, last_node)))
-                                stats.append(gen_node)
-                                gen_nodes[name] = gen_node
-                    else:
+                if is_sink:
+                    cons, exps = replace_subaccess(e)
+                    gen_nodes: Dict[str, DefNode] = {}
+                    connects: Dict[str, Connect] = {}
+                    new_stats: List[Exp] = []
+                    e_name = get_ref_name(e)
+                    for stat in stats:
+                        if isinstance(stat, Connect) and get_ref_name(stat.lexp) == e_name:
+                            connects[e.emit_verilog()] = stat.rexp
+                        else:
+                            new_stats.append(stat)
+                    stats = new_stats
+                    for i in range(len(cons)):
+                        stats.append(Connect(sourceinfo, exps[i], Mux(Gender.male, e.type, True, cons[i], source, connects[exps[i].emit_verilog()])))
+                    return
+                else:
+                    cons, exps = replace_subaccess(e)
+                    gen_nodes: Dict[str, DefNode] = {}
+                    for i in range(len(cons)):
                         if i == 0:
                             name = namespace.auto_get_name()
                             gen_node = DefNode(sourceinfo, name, None,
-                            ValidIf(Gender.male, e.type, True, cons[i], RefSubindex(e.gender, e.type, e.passive_type, e.ref_arg, i)))
+                            ValidIf(Gender.male, e.type, True, cons[i], exps[i]))
                             stats.append(gen_node)
                             gen_nodes[name] = gen_node
                         else:
                             last_node = gen_nodes[namespace.last_name()]
                             name = namespace.auto_get_name()
                             gen_node = DefNode(sourceinfo, name, None,
-                            Mux(Gender.male, e.type, True, cons[i], RefSubindex(e.gender, e.type, e.passive_type, e.ref_arg, i), 
+                            Mux(Gender.male, e.type, True, cons[i], exps[i], 
                             RefId(Gender.undefined, last_node.node_exp.type, True, last_node)))
                             stats.append(gen_node)
                             gen_nodes[name] = gen_node
-                return RefId(e.gender, e.type, e.passive_type, gen_nodes[namespace.last_name()])
+                    return RefId(e.gender, e.type, e.passive_type, gen_nodes[namespace.last_name()])
             else:
                 return e
 
@@ -121,8 +127,10 @@ class ReplaceSubaccess:
                 stats.append(DefRegReset(s.sourceinfo, s.name, s.instanceid, s.clk, s.type, s.reset_signal,
                 replace_subaccess_e(s.reset_value, stats, s.sourceinfo)))
             elif isinstance(s, Connect):
-                stats.append(Connect(s.sourceinfo, replace_subaccess_e(s.lexp, stats, s.sourceinfo),
-                replace_subaccess_e(s.rexp, stats, s.sourceinfo)))
+                rexp = replace_subaccess_e(s.rexp, stats, s.sourceinfo)
+                lexp = replace_subaccess_e(s.lexp, stats, s.sourceinfo, True, rexp)
+                if lexp is not None:
+                    stats.append(Connect(s.sourceinfo, lexp, rexp))
             else:
                 stats.append(s)
 
