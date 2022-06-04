@@ -165,7 +165,8 @@ class ExpandAggregate:
                 
                 return ElseBegin(s.sourceinfo, stats)
             else:
-                return s
+                stat_decs.append(s)
+                return stat_decs
 
         def expand_aggregate_m(m: Module) -> Module:
             ports = list(map(lambda p: expand_aggregate_p(p), m.ports))

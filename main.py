@@ -17,7 +17,7 @@ class FullAdder(Module):
         self.io = FullAdderIO().IO()
 
         self.io.sum @= self.io.a ^ self.io.b & self.io.cin
-        self.io.cout @= self.io.a & self.io.b | self.io.b & self.io.cin | self.io.a & self.io.cin
+        self.io.cout @= self.io.a & self.io.b | self.io.b & self.io.cin | self.io.a & self.io.cin       
 
 if __name__ == "__main__":
     builder.emit_verilog(builder.elaborate(FullAdder().gen()), "FullAdder.v")

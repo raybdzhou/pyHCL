@@ -822,13 +822,14 @@ class RefMemPort(DefStat):
             The Verilog code string
         """
         memportdeclares = ""
-        memportdeclares += f"wire {self.refmem.type.emit_verilog()}{self.refmem.name}_{self.name}_data;\n"
-        memportdeclares += f"wire [{get_width(self.refmem.size)-1}:0] {self.refmem.name}_{self.name}_addr;\n"
-        memportdeclares += f"wire {self.refmem.name}_{self.name}_en;\n"
-        memportdeclares += f"assign {self.refmem.name}_{self.name}_addr = {self.addr.emit_verilog()};\n"
-        memportdeclares += f"assign {self.refmem.name}_{self.name}_en = 1\'h1;\n"
+        memportdeclares += f"wire {self.refmem.type.emit_verilog()}{self.refmem.name}__{self.name}_data;\n"
+        memportdeclares += f"wire [{get_width(self.refmem.size)-1}:0] {self.refmem.name}__{self.name}_addr;\n"
+        memportdeclares += f"wire {self.refmem.name}__{self.name}_en;\n"
+        memportdeclares += f"assign {self.refmem.name}__{self.name}_addr = {self.addr.emit_verilog()};\n"
+        memportdeclares += f"assign {self.refmem.name}__{self.name}_en = 1\'h1;\n"
         if self.read_or_write is False:
-            memportdeclares += f'wire {self.refmem.name}_{self.name}_mask;\n'
+            memportdeclares += f'wire {self.refmem.name}__{self.name}_mask;\n'
+            memportdeclares += f"assign {self.refmem.name}__{self.name}_mask = 1\'h1;\n"
         return memportdeclares
 
 
@@ -857,8 +858,9 @@ class Connect(CmdStat):
     """
     lexp: Exp = None
     rexp: Exp = None
+    is_block: bool = True
 
-    def __init__(self, sourceinfo: SourceInfo = None, lexp: Exp = None, rexp: Exp = None):
+    def __init__(self, sourceinfo: SourceInfo = None, lexp: Exp = None, rexp: Exp = None, is_block: bool = True):
         """Inits a connect object
 
         Args:
@@ -888,6 +890,7 @@ class Connect(CmdStat):
         self.lexp = lexp
         self.rexp = rexp
         self.sourceinfo = sourceinfo
+        self.is_block = is_block
 
     def emit(self) -> str:
         """Generate and return the FIRRTL code of current connect statement
@@ -906,10 +909,16 @@ class Connect(CmdStat):
         Returns:
             The Verilog code string
         """
-        if self.sourceinfo is None:
-            return f"assign\t{self.lexp.emit_verilog()} = {self.rexp.emit_verilog()};"
+        if self.is_block:
+            if self.sourceinfo is None:
+                return f"assign\t{self.lexp.emit_verilog()} = {self.rexp.emit_verilog()};"
+            else:
+                return f"assign\t{self.lexp.emit_verilog()} = {self.rexp.emit_verilog()};\t{self.sourceinfo.emit_verilog()}"
         else:
-            return f"assign\t{self.lexp.emit_verilog()} = {self.rexp.emit_verilog()};\t{self.sourceinfo.emit_verilog()}"
+            if self.sourceinfo is None:
+                return f"{self.lexp.emit_verilog()} <= {self.rexp.emit_verilog()};"
+            else:
+                return f"{self.lexp.emit_verilog()} <= {self.rexp.emit_verilog()};\t{self.sourceinfo.emit_verilog()}"
 
 
 @dataclass
@@ -1089,7 +1098,8 @@ class WhenEnd(CmdStat):
         Returns:
             The Verilog code string
         """
-        return "end"
+        global emit_level
+        return "\t" * emit_level + "end"
 
 
 @dataclass
@@ -1134,9 +1144,9 @@ class ElseBegin(CmdStat):
         global emit_level
         cat_table: List[str] = []
         if self.sourceinfo is None:
-            cat_table.append("else begin")
+            cat_table.append("\t" * emit_level + "else begin")
         else:
-            cat_table.append(f"else begin\t{self.sourceinfo.emit_verilog()}")
+            cat_table.append("\t" * emit_level + f"else begin\t{self.sourceinfo.emit_verilog()}")
         
         emit_level = emit_level + 1
         for s in self.stats:
@@ -1170,7 +1180,8 @@ class ElseEnd(CmdStat):
         Returns:
             The Verilog code string
         """
-        return "end"
+        global emit_level
+        return "\t" * emit_level + "end"
 
 
 @dataclass
@@ -1233,17 +1244,39 @@ class When(CmdStat):
         emit_level = emit_level + 1
         for s in self.stats:
             cat_table.append("\t"*emit_level + s.emit_verilog())
-        cat_table.append(self.whenend.emit_verilog())
         emit_level = emit_level - 1
+        cat_table.append(self.whenend.emit_verilog())
 
         if self.has_else:
             cat_table.append(self.elsebegin.emit_verilog())
-            cat_table.append(self.elseend.emit_verilog())
             emit_level = emit_level - 1
+            cat_table.append(self.elseend.emit_verilog())
 
         return "\n".join(cat_table)
 
+@dataclass
+class AlwaysBlock(CmdStat):
+    stats: List[DefStat] = None
+    clk: Exp = None
 
+    def emit(self) -> str:
+        pass
+
+    def emit_verilog(self) -> str:
+        global emit_level
+        cat_table: List[str] = []
+        emit_level = emit_level + 1
+        for stat in self.stats:
+            cat_table.append("\t"*emit_level + stat.emit_verilog())
+        emit_level = emit_level - 1
+        
+        if self.clk is None:
+            declares = "\n".join(cat_table)
+            return f"always @(posedge clock) begin\n{declares}\n"+"\t"*emit_level+"end"
+        else:
+            declares = "\n".join(cat_table)
+            return f"always @(posedge {self.clk.emit_verilog()}) begin\n{declares}\n" +"\t"*emit_level+"end"
+        
 @dataclass
 class UInt(Type):
     """Unsigned integer type
@@ -1488,7 +1521,7 @@ class LitUInt(LitInt):
             The Verilog code string
         """
         if self.type.width == 0:
-            return self.initial
+            return f"{self.initial}"
         else:
             if isinstance(self.initial, int):
                 return f"{self.type.width}\'d{self.initial}"
@@ -1531,7 +1564,7 @@ class LitSInt(LitInt):
             The Verilog code string
         """
         if self.type.width == 0:
-            return self.initial
+            return f"{self.initial}"
         else:
             if isinstance(self.initial, int):
                 return f"-{self.type.width}\'d{-self.initial}" if self.initial < 0 else f"{self.type.width}\'d{self.initial}"
@@ -1791,4 +1824,4 @@ class RefSubaccess(Ref):
         return "{}[{}]".format(self.ref_arg.name, self.index_exp.emit())
     
     def emit_verilog(self) -> str:
-        pass
+        return self.emit()

@@ -16,6 +16,7 @@ from pyhcl.core.resources import HasInfo, InstanceId
 from pyhcl.firrtl import ir
 from pyhcl.core.rawdata import local_sytax_tree
 from pyhcl.firrtl.passes.expand_aggregate import ExpandAggregate
+from pyhcl.firrtl.passes.expand_sequential import ExpandSequential
 from pyhcl.firrtl.passes.namespace import Namespace
 from pyhcl.firrtl.passes.remove_access import RemoveAccess
 from pyhcl.firrtl.passes.replace_subaccess import ReplaceSubaccess
@@ -223,6 +224,7 @@ def emit_verilog(circuit: ir.Circuit, filename: str):
     circuit = ReplaceSubaccess(circuit).run(namespace)
     circuit = RemoveAccess(circuit).run(namespace)
     circuit = VerilogOptimize(circuit).run(namespace)
+    circuit = ExpandSequential(circuit).run(namespace)
     s = circuit.emit_verilog()
 
     if not os.path.exists('.v'):

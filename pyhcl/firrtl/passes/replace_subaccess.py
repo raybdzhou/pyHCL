@@ -116,28 +116,30 @@ class ReplaceSubaccess:
 
         def replace_subaccess_s(s: DefStat, stats: List[DefStat]):
             if isinstance(s, When):
-                stats.append(When(s.sourceinfo, s.whenbegin, s.whenend,
-                s.has_else, replace_subaccess_s(s.elsebegin), s.elseend,
-                [replace_subaccess_s(sx, stats) for sx in s.stats]))
+                return When(s.sourceinfo, s.whenbegin, s.whenend,
+                s.has_else, replace_subaccess_s(s.elsebegin, stats), s.elseend,
+                [replace_subaccess_s(sx, stats) for sx in s.stats])
             elif isinstance(s, ElseBegin):
-                stats.append(ElseBegin(s.sourceinfo, [replace_subaccess_s(sx, stats) for sx in s.stats]))
+                return ElseBegin(s.sourceinfo, [replace_subaccess_s(sx, stats) for sx in s.stats])
             elif isinstance(s, DefNode):
-                stats.append(DefNode(s.sourceinfo, s.name, s.instanceid, replace_subaccess_e(s.node_exp, stats, s.sourceinfo)))
+                return DefNode(s.sourceinfo, s.name, s.instanceid, replace_subaccess_e(s.node_exp, stats, s.sourceinfo))
             elif isinstance(s, DefRegReset):
-                stats.append(DefRegReset(s.sourceinfo, s.name, s.instanceid, s.clk, s.type, s.reset_signal,
-                replace_subaccess_e(s.reset_value, stats, s.sourceinfo)))
+                return DefRegReset(s.sourceinfo, s.name, s.instanceid, s.clk, s.type, s.reset_signal,
+                replace_subaccess_e(s.reset_value, stats, s.sourceinfo))
             elif isinstance(s, Connect):
                 rexp = replace_subaccess_e(s.rexp, stats, s.sourceinfo)
                 lexp = replace_subaccess_e(s.lexp, stats, s.sourceinfo, True, rexp)
                 if lexp is not None:
-                    stats.append(Connect(s.sourceinfo, lexp, rexp))
+                    return Connect(s.sourceinfo, lexp, rexp)
+                else:
+                    return s
             else:
-                stats.append(s)
+                return s
 
         def replace_subaccess_m(m: Module) -> Module:
             stats: List[DefStat] = []
             for stat in m.stats:
-                replace_subaccess_s(stat, stats)
+                stats.append(replace_subaccess_s(stat, stats))
             return Module(m.sourceinfo, m.name, m.instanceid, m.ports, stats)
 
         for m in self.c.modules:
