@@ -821,16 +821,17 @@ class RefMemPort(DefStat):
         Returns:
             The Verilog code string
         """
-        memportdeclares = ""
-        memportdeclares += f"wire {self.refmem.type.emit_verilog()}{self.refmem.name}__{self.name}_data;\n"
-        memportdeclares += f"wire [{get_width(self.refmem.size)-1}:0] {self.refmem.name}__{self.name}_addr;\n"
-        memportdeclares += f"wire {self.refmem.name}__{self.name}_en;\n"
-        memportdeclares += f"assign {self.refmem.name}__{self.name}_addr = {self.addr.emit_verilog()};\n"
-        memportdeclares += f"assign {self.refmem.name}__{self.name}_en = 1\'h1;\n"
+        global emit_level
+        cat_table: List[str] = []
+        cat_table.append(f"wire {self.refmem.type.emit_verilog()}{self.refmem.name}_{self.name}_data;")
+        cat_table.append("\t" * emit_level + f"wire [{get_width(self.refmem.size)-1}:0] {self.refmem.name}_{self.name}_addr;")
+        cat_table.append("\t" * emit_level + f"wire {self.refmem.name}_{self.name}_en;")
+        cat_table.append("\t" * emit_level + f"assign {self.refmem.name}_{self.name}_addr = {self.addr.emit_verilog()};")
+        cat_table.append("\t" * emit_level + f"assign {self.refmem.name}_{self.name}_en = 1\'h1;")
         if self.read_or_write is False:
-            memportdeclares += f'wire {self.refmem.name}__{self.name}_mask;\n'
-            memportdeclares += f"assign {self.refmem.name}__{self.name}_mask = 1\'h1;\n"
-        return memportdeclares
+            cat_table.append("\t" * emit_level + f'wire {self.refmem.name}_{self.name}_mask;')
+            cat_table.append("\t" * emit_level + f"assign {self.refmem.name}_{self.name}_mask = 1\'h1;")
+        return "\n".join(cat_table)
 
 
 
@@ -1409,7 +1410,7 @@ class Vector(AggType):
         return "{}[{}]".format(self.type.emit(), self.size)
     
     def emit_verilog(self) -> str:
-        pass
+        return self.type.emit_verilog()
 
 
 @dataclass

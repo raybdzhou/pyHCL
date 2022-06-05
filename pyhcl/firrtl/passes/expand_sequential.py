@@ -112,12 +112,16 @@ class ExpandSequential:
                     for rs in reset_sign_map[k]:
                         block_map[k].append(When(None, WhenBegin(None, rs), WhenEnd(), False, None, None, reset_map[k]))
             for k in mem_map:
-                sig = Op(Gender.male, UInt(1), True, "and", [RefId(Gender.undefined, UInt(1), True, DefWire(None, f"{mem_map[k].refmem.name}__{k}_en", None, UInt(1))),
-                RefId(Gender.undefined, UInt(1), True, DefWire(None, f"{mem_map[k].refmem.name}__{k}_mask"))], [])
-                con = Connect(None, RefSubaccess(Gender.undefined, mem_map[k].refmem.type, True, mem_map[k].ref.mem, RefId(Gender.undefined, 
-                mem_map[k].addr.type, True, DefWire(None, f"{mem_map[k].refmem.name}__{k}_addr", None, mem_map[k].addr.type))), RefId(Gender.undefined, 
-                mem_map[k].ref_mem.type, True, DefWire(None, f"{mem_map[k].refmem.name}__{k}_data", None, mem_map[k].ref_mem.type)))
-                if mem_map[k].clk.emit_verilog() in block_map and mem_map[k].read_or_write is False:
+                sig = Op(Gender.male, UInt(1), True, "and", [RefId(Gender.undefined, UInt(1), True, DefWire(None, f"{mem_map[k].refmem.name}_{k}_en", None, UInt(1))),
+                RefId(Gender.undefined, UInt(1), True, DefWire(None, f"{mem_map[k].refmem.name}_{k}_mask"))], [])
+                con = Connect(None, RefSubaccess(Gender.undefined, mem_map[k].refmem.type, True, mem_map[k].refmem, RefId(Gender.undefined, 
+                mem_map[k].addr.type, True, DefWire(None, f"{mem_map[k].refmem.name}_{k}_addr", None, mem_map[k].addr.type))), RefId(Gender.undefined, 
+                mem_map[k].refmem.type, True, DefWire(None, f"{mem_map[k].refmem.name}_{k}_data", None, mem_map[k].refmem.type)), False)
+                if mem_map[k].read_or_write is False:
+                    if mem_map[k].clk.emit_verilog()  not in block_map:
+                        block_map[mem_map[k].clk.emit_verilog()] = []
+                    if mem_map[k].clk.emit_verilog() not in clock_map:
+                        clock_map[mem_map[k].clk.emit_verilog()] = mem_map[k].clk
                     block_map[mem_map[k].clk.emit_verilog()].append(When(None, WhenBegin(None, sig), WhenEnd(), False, None, None, [con]))
             for k in block_map:
                 new_stats.append(AlwaysBlock(None, block_map[k], clock_map[k]))

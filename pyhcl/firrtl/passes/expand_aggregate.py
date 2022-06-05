@@ -135,13 +135,14 @@ class ExpandAggregate:
                     raise PyHCLException(f"{s.type.__class__.__name__} is unidentified type!")
                 return stat_decs
             elif isinstance(s, DefMem):
-                if isinstance(s.type, (UInt, SInt, Clock, AsyncReset)):
-                    stat_decs.append(s)
-                elif isinstance(s.type, (Vector, Bundle)):
-                    stat_decs.extend(list(map(lambda stat_dec: DefMem(s.sourceinfo,
-                    stat_dec[2], s.instanceid, stat_dec[0], s.size, s.sync))))
-                else:
-                    raise PyHCLException(f"{s.type.__class__.__name__} is unidentified type!")
+                # if isinstance(s.type, (UInt, SInt, Clock, AsyncReset)):
+                #     stat_decs.append(s)
+                # elif isinstance(s.type, (Vector, Bundle)):
+                #     stat_decs.extend(list(map(lambda stat_dec: DefMem(s.sourceinfo,
+                #     stat_dec[2], s.instanceid, stat_dec[0], s.size, s.sync), expand_aggregate_t(s.type, None, s.name))))
+                # else:
+                #     raise PyHCLException(f"{s.type.__class__.__name__} is unidentified type!")
+                stat_decs.append(s)
                 return stat_decs
             elif isinstance(s, DefNode):
                 if isinstance(s.node_exp.type, (Bundle, Vector)):
