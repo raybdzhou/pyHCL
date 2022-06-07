@@ -5,16 +5,14 @@ Author  : SunnyChen
 """
 from __future__ import annotations
 
-import time
 import os
 from typing import List
 
 from pyhcl.core.bundle import Bundle
-from pyhcl.core.ports import Port, Input, Output
+from pyhcl.core.ports import Port
 from pyhcl.core.rawmodule import Module, modules_list
-from pyhcl.core.resources import HasInfo, InstanceId
 from pyhcl.firrtl import ir
-from pyhcl.core.rawdata import local_sytax_tree
+from pyhcl.firrtl.passes.auto_inferring import AutoInferring
 from pyhcl.firrtl.passes.expand_aggregate import ExpandAggregate
 from pyhcl.firrtl.passes.expand_sequential import ExpandSequential
 from pyhcl.firrtl.passes.namespace import Namespace
@@ -220,6 +218,7 @@ def emit_verilog(circuit: ir.Circuit, filename: str):
     """From syntax tree to emit Verilog code"""
     # From circuit, if the first element is not a circuit, raise a Error
     namespace = Namespace()
+    circuit = AutoInferring(circuit).run(namespace)
     circuit = ExpandAggregate(circuit).run(namespace)
     circuit = ReplaceSubaccess(circuit).run(namespace)
     circuit = RemoveAccess(circuit).run(namespace)
