@@ -29,7 +29,7 @@ class AutoInferring:
             elif isinstance(t, Vector):
                 return Vector(t.width, t.size, auto_inferring_t(t.type))
             elif isinstance(t, Bundle):
-                return Bundle(t.width, t.size, [auto_inferring_t(fx.type) for fx in t.fields])
+                return Bundle(t.width, t.size, [Field(fx.sourceinfo, fx.name, fx.instanceid, fx.is_flip, auto_inferring_t(fx.type)) for fx in t.fields])
             else:
                 return t
 
