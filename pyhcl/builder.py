@@ -13,6 +13,7 @@ from pyhcl.core.ports import Port
 from pyhcl.core.rawmodule import Module, modules_list
 from pyhcl.firrtl import ir
 from pyhcl.firrtl.passes.auto_inferring import AutoInferring
+from pyhcl.firrtl.passes.check_forms import CheckForms
 from pyhcl.firrtl.passes.check_types import CheckTypes
 from pyhcl.firrtl.passes.expand_aggregate import ExpandAggregate
 from pyhcl.firrtl.passes.expand_sequential import ExpandSequential
@@ -219,6 +220,7 @@ def emit_verilog(circuit: ir.Circuit, filename: str):
     """From syntax tree to emit Verilog code"""
     # From circuit, if the first element is not a circuit, raise a Error
     namespace = Namespace()
+    circuit = CheckForms(circuit).run(namespace)
     circuit = AutoInferring(circuit).run(namespace)
     circuit = CheckTypes(circuit).run(namespace)
     circuit = ExpandAggregate(circuit).run(namespace)

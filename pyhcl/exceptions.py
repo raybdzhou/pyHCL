@@ -5,6 +5,7 @@ Not fully implemented.
 Filename: exceptions.py
 Author: SunnyChen
 """
+from typing import List
 
 
 class PyHCLException(Exception):
@@ -22,6 +23,16 @@ class PyHCLException(Exception):
         """
         super().__init__(self)
         self.msg = msg
+    
+    def __str__(self):
+        return self.msg
+
+class PyHCLExceptions(Exception):
+    def __init__(self, exceptions: List[PyHCLException]):
+        self.message = '\n'.join([str(exception) for exception in exceptions])
+    
+    def __str__(self):
+        return '\n' + self.message
 
 
 class EquivalentError(PyHCLException):
